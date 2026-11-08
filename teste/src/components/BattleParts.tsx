@@ -147,14 +147,14 @@ export function MoveButton({
     <button
       className="move-btn"
       style={{borderColor: TYPE_COLOR[move.type] ?? '#777', ['--tc' as any]: TYPE_COLOR[move.type] ?? '#777'}}
-      disabled={disabled || move.disabled || move.pp <= 0}
+      disabled={disabled || move.disabled || (move.maxpp > 0 && move.pp <= 0)}
       onClick={onClick}
     >
       <span className="move-name">{move.name}</span>
       <span className="move-meta">
         <span>{move.type}</span>
         <span>{isStatus ? 'Status' : `${move.category === 'Physical' ? 'Fís' : 'Esp'} ${move.basePower || '—'}`}</span>
-        <span>PP {move.pp}/{move.maxpp}</span>
+        <span>{move.maxpp > 0 ? `PP ${move.pp}/${move.maxpp}` : 'PP —'}</span>
       </span>
       {(label || (estimate !== undefined && !isStatus)) && (
         <span className="move-eff">
@@ -212,7 +212,7 @@ export function InspectModal({mon, onClose}: {mon: MonView; onClose(): void}) {
             Item atual: <strong>{mon.item || '—'}</strong> · Habilidade: <strong>{mon.ability}</strong>
           </div>
           <div className="small">
-            Golpes: {mon.moves.map(m => `${m.name} (${m.pp}/${m.maxpp})`).join(' · ')}
+            Golpes: {mon.knownMoves.map(m => `${m.name} (${m.pp}/${m.maxpp})`).join(' · ')}
           </div>
           {Object.keys(mon.boosts).length > 0 && (
             <div className="small">

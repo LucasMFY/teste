@@ -87,7 +87,10 @@ export interface MonView {
   boosts: Record<string, number>;
   volatiles: string[];
   stats: Record<'atk' | 'def' | 'spa' | 'spd' | 'spe', number>;
+  /** golpes escolhíveis agora ("move N" = slot). Pode ter só 1 quando travado. */
   moves: MoveView[];
+  /** os golpes que o Pokémon conhece, com PP atual */
+  knownMoves: MoveView[];
   set: FullSet;
 }
 
@@ -125,24 +128,32 @@ function setOf(p: Pokemon): FullSet {
   };
 }
 
+function moveView(p: Pokemon, id: string, slot: number, disabled: boolean, fallbackName?: string): MoveView {
+  const ms = p.moveSlots.find(m => m.id === id);
+  const mv = dex.moves.get(id);
+  const isHP = id === 'hiddenpower';
+  return {
+    slot,
+    id,
+    name: isHP ? `Hidden Power ${p.hpType}` : ms?.move ?? (mv.exists ? mv.name : fallbackName ?? id),
+    type: isHP ? p.hpType : mv.type,
+    category: mv.category,
+    basePower: isHP ? p.hpPower : mv.basePower,
+    accuracy: mv.accuracy,
+    pp: ms?.pp ?? 0,
+    maxpp: ms?.maxpp ?? 0,
+    disabled,
+  };
+}
+
 function monView(p: Pokemon, slot: number, req?: any): MonView {
   const reqMoves: any[] | undefined = p.isActive ? req?.active?.[0]?.moves : undefined;
-  const moves: MoveView[] = p.moveSlots.map((ms, i) => {
-    const mv = dex.moves.get(ms.id);
-    const isHP = ms.id === 'hiddenpower';
-    return {
-      slot: i + 1,
-      id: ms.id,
-      name: isHP ? `Hidden Power ${p.hpType}` : ms.move,
-      type: isHP ? p.hpType : mv.type,
-      category: mv.category,
-      basePower: isHP ? p.hpPower : mv.basePower,
-      accuracy: mv.accuracy,
-      pp: ms.pp,
-      maxpp: ms.maxpp,
-      disabled: !!(reqMoves ? reqMoves.find(r => r.id === ms.id)?.disabled : ms.disabled),
-    };
-  });
+  // Quando há um pedido de golpe, os botões seguem a lista do pedido: o "move N" do Showdown é o índice
+  // NESSA lista, que encolhe para 1 item quando o Pokémon está travado (Outrage, recarga, 2 turnos, Struggle).
+  const knownMoves = p.moveSlots.map((ms, i) => moveView(p, ms.id, i + 1, !!ms.disabled));
+  const moves: MoveView[] = reqMoves
+    ? reqMoves.map((r, i) => moveView(p, r.id, i + 1, !!r.disabled, r.move))
+    : knownMoves;
   const boosts: Record<string, number> = {};
   for (const [k, v] of Object.entries(p.boosts)) if (v) boosts[k] = v;
   return {
@@ -164,6 +175,7 @@ function monView(p: Pokemon, slot: number, req?: any): MonView {
     volatiles: p.isActive ? Object.keys(p.volatiles) : [],
     stats: {...p.storedStats},
     moves,
+    knownMoves,
     set: setOf(p),
   };
 }
